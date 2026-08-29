@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduPulse - LMS Learning Analytics Dashboard</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            surface: {
+              light: '#ffffff',
+              dark: '#0f172a',
+              cardDark: '#1e293b',
+              borderDark: '#334155'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    /* Custom subtle scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    .dark ::-webkit-scrollbar-thumb { background: #334155; }
+    
+    .chart-container {
+      position: relative;
+      width: 100%;
+      height: 280px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.55rem;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.025em;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-900 text-slate-100 min-h-full flex flex-col selection:bg-indigo-500 selection:text-white">
+
+  <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Logo & Branding -->
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+            <i data-lucide="graduation-cap" class="w-6 h-6 text-white"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-lg tracking-tight text-white">EduPulse LMS</span>
+              <span class="text-xs px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 font-semibold border border-indigo-500/20">Analytics Engine</span>
+            </div>
+            <p class="text-xs text-slate-400">Student Performance & Engagement Intelligence</p>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center space-x-3">
+          <!-- CSV Import trigger -->
+          <label class="cursor-pointer flex items-center space-x-2 text-xs font-semibold px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+            <i data-lucide="upload-cloud" class="w-4 h-4 text-indigo-400"></i>
+            <span class="hidden sm:inline">Import LMS_data.csv</span>
+            <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+          </label>
+
+          <!-- Export Summary -->
+          <button id="btnExport" class="flex items-center space-x-2 text-xs font-semibold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 transition">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Export Report</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    
+    <!-- Toast Notification Banner -->
+    <div id="toastNotification" class="hidden transform transition-all duration-300 items-center justify-between p-3.5 bg-indigo-950/80 border border-indigo-500/30 rounded-xl text-indigo-200 text-sm">
+      <div class="flex items-center space-x-2.5">
+        <i data-lucide="info" class="w-4 h-4 text-indigo-400"></i>
+        <span id="toastMessage">Default notification message</span>
+      </div>
+      <button onclick="hideToast()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+
+    <!-- Filter & Query Control Center -->
+    <div class="bg-slate-800/80 border border-slate-700/70 rounded-2xl p-4 shadow-xl backdrop-blur">
+      <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+        
+        <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          <!-- Course Filter -->
+          <div class="flex-1 sm:flex-none">
+            <label class="block text-[11px] font-medium text-slate-400 mb-1 uppercase tracking-wider">Course Subject</label>
+            <div class="relative">
+              <select id="courseFilter" class="w-full sm:w-48 appearance-none bg-slate-900 border border-slate-700 text-xs text-white rounded-lg px-3 py-2 pr-8 focus:outline-none focus:border-indigo-500">
+                <option value="ALL">All Courses (Overview)</option>
+              </select>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none"></i>
+            </div>
+          </div>
+
+          <!-- Academic Status Filter -->
+          <div class="flex-1 sm:flex-none">
+            <label class="block text-[11px] font-medium text-slate-400 mb-1 uppercase tracking-wider">Student Status</label>
+            <div class="relative">
+              <select id="statusFilter" class="w-full sm:w-44 appearance-none bg-slate-900 border border-slate-700 text-xs text-white rounded-lg px-3 py-2 pr-8 focus:outline-none focus:border-indigo-500">
+                <option value="ALL">All Statuses</option>
+                <option value="Completed">Completed / Passed</option>
+                <option value="In Progress">In Progress</option>
+                <option value="At-Risk">At-Risk / Critical</option>
+              </select>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none"></i>
+            </div>
+          </div>
+
+          <!-- Grade Level Filter -->
+          <div class="flex-1 sm:flex-none">
+            <label class="block text-[11px] font-medium text-slate-400 mb-1 uppercase tracking-wider">Grade Tier</label>
+            <div class="relative">
+              <select id="gradeFilter" class="w-full sm:w-36 appearance-none bg-slate-900 border border-slate-700 text-xs text-white rounded-lg px-3 py-2 pr-8 focus:outline-none focus:border-indigo-500">
+                <option value="ALL">All Grades</option>
+                <option value="A">Grade A (90%+)</option>
+                <option value="B">Grade B (80-89%)</option>
+                <option value="C">Grade C (70-79%)</option>
+                <option value="D/F">Grade D/F (&lt;70%)</option>
+              </select>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Metrics Indicator & Reset Button -->
+        <div class="flex items-center space-x-3 w-full lg:w-auto justify-between lg:justify-end">
+          <div class="text-right">
+            <span class="text-xs text-slate-400">Cohort Sample:</span>
+            <span id="filteredStudentCountBadge" class="ml-1 text-xs font-bold text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-full">0 Records</span>
+          </div>
+          <button id="btnResetFilters" class="text-xs font-medium text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/60 hover:bg-slate-700 transition flex items-center space-x-1.5">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-slate-400"></i>
+            <span>Reset</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- KPI 1: Total Enrollment -->
+      <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-slate-600 transition">
+        <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl group-hover:bg-indigo-500/20 transition"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Enrollment</span>
+          <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+            <i data-lucide="users" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline space-x-2">
+          <span id="kpiTotalStudents" class="text-2xl sm:text-3xl font-extrabold text-white">0</span>
+          <span class="text-xs text-emerald-400 flex items-center font-medium">
+            <i data-lucide="trending-up" class="w-3 h-3 mr-0.5"></i> Active Cohort
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-1">Total registered student profiles</p>
+      </div>
+
+      <!-- KPI 2: Average Quiz Score -->
+      <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-slate-600 transition">
+        <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/10 rounded-full blur-xl group-hover:bg-blue-500/20 transition"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Avg Assessment Score</span>
+          <div class="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+            <i data-lucide="award" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline space-x-2">
+          <span id="kpiAvgScore" class="text-2xl sm:text-3xl font-extrabold text-white">0%</span>
+          <span id="kpiScorePill" class="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-500/20 text-blue-300">Target: 75%</span>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-1">Continuous quiz & assignment average</p>
+      </div>
+
+      <!-- KPI 3: Avg Module Progress -->
+      <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-slate-600 transition">
+        <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Course Completion Pace</span>
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline space-x-2">
+          <span id="kpiAvgCompletion" class="text-2xl sm:text-3xl font-extrabold text-white">0%</span>
+          <span class="text-xs text-emerald-400 flex items-center font-medium">
+            <i data-lucide="activity" class="w-3 h-3 mr-0.5"></i> Progress
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-1">Average module completion milestone</p>
+      </div>
+
+      <!-- KPI 4: At-Risk Intervention Alert -->
+      <div class="bg-slate-800/90 border border-rose-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-rose-500/50 transition">
+        <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-rose-500/15 rounded-full blur-xl group-hover:bg-rose-500/25 transition"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold text-rose-300 uppercase tracking-wider">At-Risk Students</span>
+          <div class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center">
+            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline space-x-2">
+          <span id="kpiAtRiskCount" class="text-2xl sm:text-3xl font-extrabold text-rose-400">0</span>
+          <span class="text-xs font-semibold text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-full">Requires Intervention</span>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-1">Low engagement / score &lt; 65%</p>
+      </div>
+
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Chart 1: Grade Tier Distribution -->
+      <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-sm font-bold text-white">Score & Grade Distribution</h3>
+            <p class="text-xs text-slate-400">Breakdown across letter grade categories</p>
+          </div>
+          <span class="p-2 rounded-lg bg-slate-700/50 text-slate-300"><i data-lucide="bar-chart-2" class="w-4 h-4"></i></span>
+        </div>
+        <div class="chart-container flex-1">
+          <canvas id="gradeDistributionChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: Engagement vs Performance Scatter -->
+      <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-sm font-bold text-white">Engagement vs. Exam Score</h3>
+            <p class="text-xs text-slate-400">Time spent (Hrs/Week) vs. Overall %</p>
+          </div>
+          <span class="p-2 rounded-lg bg-slate-700/50 text-slate-300"><i data-lucide="scatter-chart" class="w-4 h-4"></i></span>
+        </div>
+        <div class="chart-container flex-1">
+          <canvas id="engagementScatterChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 3: Weekly Activity & Logins Pattern -->
+      <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-sm font-bold text-white">Weekly Activity Rhythm</h3>
+            <p class="text-xs text-slate-400">LMS portal logins & quiz submissions</p>
+          </div>
+          <span class="p-2 rounded-lg bg-slate-700/50 text-slate-300"><i data-lucide="line-chart" class="w-4 h-4"></i></span>
+        </div>
+        <div class="chart-container flex-1">
+          <canvas id="weeklyActivityChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Course Performance Comparison Chart -->
+      <div class="lg:col-span-2 bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-sm font-bold text-white">Course Benchmark Comparison</h3>
+            <p class="text-xs text-slate-400">Average Scores vs. Completion Rate per Course</p>
+          </div>
+          <span class="p-2 rounded-lg bg-slate-700/50 text-slate-300"><i data-lucide="layers" class="w-4 h-4"></i></span>
+        </div>
+        <div class="chart-container" style="height: 250px;">
+          <canvas id="courseComparisonChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Quick Early-Warning Intervention List -->
+      <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+            <h3 class="text-sm font-bold text-white">Priority Intervention Needed</h3>
+          </div>
+          <span id="atRiskBadgeCount" class="text-xs px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">0</span>
+        </div>
+        <p class="text-xs text-slate-400 mb-3">Students below passing threshold needing mentor outreach.</p>
+        
+        <div id="atRiskList" class="flex-1 space-y-2.5 overflow-y-auto max-h-[220px] pr-1">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+    </div>
+
+    <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl shadow-xl overflow-hidden">
+      <div class="p-4 sm:p-5 border-b border-slate-700/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center space-x-2">
+            <span>Student Performance Registry</span>
+            <span id="tableRecordCount" class="text-xs font-normal text-slate-400 bg-slate-700 px-2 py-0.5 rounded-full">0 Records</span>
+          </h3>
+          <p class="text-xs text-slate-400">Detailed logs including quiz metrics, engagement hours, and status.</p>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="w-full sm:w-72 relative">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none"></i>
+          <input type="text" id="tableSearch" placeholder="Search by student, ID, or course..." class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+        </div>
+      </div>
+
+      <!-- Table Content -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-900/80 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-700/80">
+            <tr>
+              <th scope="col" class="px-4 py-3 cursor-pointer hover:text-white" onclick="sortTable('studentId')">Student ID <i data-lucide="arrow-up-down" class="inline w-3 h-3 ml-1"></i></th>
+              <th scope="col" class="px-4 py-3 cursor-pointer hover:text-white" onclick="sortTable('name')">Student Name <i data-lucide="arrow-up-down" class="inline w-3 h-3 ml-1"></i></th>
+              <th scope="col" class="px-4 py-3 cursor-pointer hover:text-white" onclick="sortTable('course')">Enrolled Course <i data-lucide="arrow-up-down" class="inline w-3 h-3 ml-1"></i></th>
+              <th scope="col" class="px-4 py-3 cursor-pointer hover:text-white" onclick="sortTable('progress')">Module Progress <i data-lucide="arrow-up-down" class="inline w-3 h-3 ml-1"></i></th>
+              <th scope="col" class="px-4 py-3 cursor-pointer hover:text-white" onclick="sortTable('avgScore')">Quiz / Exam Score <i data-lucide="arrow-up-down" class="inline w-3 h-3 ml-1"></i></th>
+              <th scope="col" class="px-4 py-3 cursor-pointer hover:text-white" onclick="sortTable('hoursSpent')">Weekly Study Time <i data-lucide="arrow-up-down" class="inline w-3 h-3 ml-1"></i></th>
+              <th scope="col" class="px-4 py-3 cursor-pointer hover:text-white" onclick="sortTable('status')">Status <i data-lucide="arrow-up-down" class="inline w-3 h-3 ml-1"></i></th>
+              <th scope="col" class="px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="studentTableBody" class="divide-y divide-slate-700/60 text-slate-300">
+            <!-- Dynamically populated rows -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Footer -->
+      <div class="p-3.5 bg-slate-900/60 border-t border-slate-700/80 flex items-center justify-between text-xs">
+        <span id="paginationInfo" class="text-slate-400">Showing 1-10 of 100</span>
+        <div class="flex items-center space-x-2">
+          <button id="btnPrevPage" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">Previous</button>
+          <span id="currentPageBadge" class="px-2 font-bold text-indigo-400">1</span>
+          <button id="btnNextPage" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <div id="studentDetailModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden transform transition-all">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 flex items-center justify-center font-bold" id="modalAvatar">
+            JD
+          </div>
+          <div>
+            <h4 id="modalStudentName" class="text-base font-bold text-white">Student Name</h4>
+            <p id="modalStudentId" class="text-xs text-slate-400">ID: STU-1001</p>
+          </div>
+        </div>
+        <button onclick="closeStudentModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="p-3 bg-slate-800/80 border border-slate-700/60 rounded-xl">
+            <span class="text-[11px] text-slate-400 block mb-0.5">Enrolled Course</span>
+            <span id="modalCourse" class="text-xs font-semibold text-white">Computer Science 101</span>
+          </div>
+          <div class="p-3 bg-slate-800/80 border border-slate-700/60 rounded-xl">
+            <span class="text-[11px] text-slate-400 block mb-0.5">Academic Status</span>
+            <span id="modalStatusBadge" class="badge bg-emerald-500/20 text-emerald-400">Completed</span>
+          </div>
+          <div class="p-3 bg-slate-800/80 border border-slate-700/60 rounded-xl">
+            <span class="text-[11px] text-slate-400 block mb-0.5">Quiz / Assessment Score</span>
+            <span id="modalScore" class="text-sm font-bold text-indigo-400">88.5%</span>
+          </div>
+          <div class="p-3 bg-slate-800/80 border border-slate-700/60 rounded-xl">
+            <span class="text-[11px] text-slate-400 block mb-0.5">Time Logged</span>
+            <span id="modalHours" class="text-sm font-bold text-white">14.2 hrs/wk</span>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <span class="text-slate-400">Course Completion</span>
+            <span id="modalProgressText" class="text-white">75%</span>
+          </div>
+          <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+            <div id="modalProgressBar" class="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 rounded-full" style="width: 75%;"></div>
+          </div>
+        </div>
+
+        <div class="p-3.5 bg-indigo-950/40 border border-indigo-500/20 rounded-xl">
+          <span class="text-xs font-semibold text-indigo-300 block mb-1 flex items-center gap-1.5">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> LMS Learning Advisor Note
+          </span>
+          <p id="modalAdvisorNote" class="text-xs text-slate-300 leading-relaxed">
+            Consistently meets assignment milestones. High participation in discussion threads.
+          </p>
+        </div>
+      </div>
+
+      <div class="p-4 bg-slate-900 border-t border-slate-800 flex justify-end space-x-2">
+        <button onclick="sendStudentIntervention()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-600/30">
+          <i data-lucide="send" class="w-3.5 h-3.5"></i>
+          <span>Send Advisory Email</span>
+        </button>
+        <button onclick="closeStudentModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Master Dataset store
+    let lmsRawData = [];
+    let filteredData = [];
+    let currentSortField = 'name';
+    let currentSortAsc = true;
+    let currentPage = 1;
+    const pageSize = 8;
+    let currentSelectedStudent = null;
+
+    // Chart instances
+    let gradeChartInstance = null;
+    let scatterChartInstance = null;
+    let weeklyChartInstance = null;
+    let courseCompChartInstance = null;
+
+    // Default rich sample dataset representing LMS_data.csv
+    const defaultSampleData = [
+      { studentId: "STU-1001", name: "Sarah Jenkins", course: "Data Science & Python", progress: 92, avgScore: 94.5, hoursSpent: 16.4, forumPosts: 24, lastLogin: "2026-08-28", status: "Completed" },
+      { studentId: "STU-1002", name: "Marcus Vance", course: "Web Development (Full Stack)", progress: 45, avgScore: 58.0, hoursSpent: 4.2, forumPosts: 3, lastLogin: "2026-08-20", status: "At-Risk" },
+      { studentId: "STU-1003", name: "Elena Rostova", course: "Machine Learning Fundamentals", progress: 85, avgScore: 89.2, hoursSpent: 14.8, forumPosts: 18, lastLogin: "2026-08-29", status: "In Progress" },
+      { studentId: "STU-1004", name: "David Kim", course: "Cybersecurity Essentials", progress: 30, avgScore: 52.4, hoursSpent: 3.1, forumPosts: 1, lastLogin: "2026-08-15", status: "At-Risk" },
+      { studentId: "STU-1005", name: "Amara Diallo", course: "Cloud Architecture (AWS/GCP)", progress: 98, avgScore: 96.0, hoursSpent: 18.0, forumPosts: 31, lastLogin: "2026-08-29", status: "Completed" },
+      { studentId: "STU-1006", name: "Liam O'Connor", course: "Data Science & Python", progress: 74, avgScore: 78.5, hoursSpent: 9.5, forumPosts: 11, lastLogin: "2026-08-27", status: "In Progress" },
+      { studentId: "STU-1007", name: "Priya Patel", course: "Web Development (Full Stack)", progress: 88, avgScore: 91.0, hoursSpent: 13.2, forumPosts: 22, lastLogin: "2026-08-28", status: "Completed" },
+      { studentId: "STU-1008", name: "Lucas Silva", course: "Machine Learning Fundamentals", progress: 40, avgScore: 61.2, hoursSpent: 5.0, forumPosts: 4, lastLogin: "2026-08-22", status: "At-Risk" },
+      { studentId: "STU-1009", name: "Chloe Dupont", course: "Cybersecurity Essentials", progress: 82, avgScore: 84.0, hoursSpent: 11.4, forumPosts: 14, lastLogin: "2026-08-28", status: "In Progress" },
+      { studentId: "STU-1010", name: "Alexander Wright", course: "Cloud Architecture (AWS/GCP)", progress: 68, avgScore: 72.8, hoursSpent: 8.9, forumPosts: 9, lastLogin: "2026-08-26", status: "In Progress" },
+      { studentId: "STU-1011", name: "Mei Ling", course: "Data Science & Python", progress: 95, avgScore: 98.2, hoursSpent: 21.0, forumPosts: 40, lastLogin: "2026-08-29", status: "Completed" },
+      { studentId: "STU-1012", name: "Jordan Taylor", course: "Web Development (Full Stack)", progress: 38, avgScore: 54.0, hoursSpent: 3.8, forumPosts: 2, lastLogin: "2026-08-18", status: "At-Risk" },
+      { studentId: "STU-1013", name: "Fatima Al-Mansoor", course: "Machine Learning Fundamentals", progress: 91, avgScore: 93.4, hoursSpent: 15.6, forumPosts: 27, lastLogin: "2026-08-29", status: "Completed" },
+      { studentId: "STU-1014", name: "Noah Campbell", course: "Cybersecurity Essentials", progress: 64, avgScore: 70.5, hoursSpent: 7.6, forumPosts: 6, lastLogin: "2026-08-25", status: "In Progress" },
+      { studentId: "STU-1015", name: "Zoe Robinson", course: "Cloud Architecture (AWS/GCP)", progress: 89, avgScore: 87.0, hoursSpent: 12.5, forumPosts: 16, lastLogin: "2026-08-28", status: "In Progress" },
+      { studentId: "STU-1016", name: "Carlos Mendoza", course: "Data Science & Python", progress: 55, avgScore: 66.5, hoursSpent: 6.2, forumPosts: 5, lastLogin: "2026-08-24", status: "In Progress" }
+    ];
+
+    function parseCSVText(csvText) {
+      try {
+        const lines = csvText.trim().split(/\r?\n/);
+        if (lines.length < 2) return null;
+        
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, '').toLowerCase());
+        
+        // Match column indices intelligently
+        const idIdx = headers.findIndex(h => h.includes('id') || h.includes('student'));
+        const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('student_name') || h.includes('user'));
+        const courseIdx = headers.findIndex(h => h.includes('course') || h.includes('subject') || h.includes('class'));
+        const progressIdx = headers.findIndex(h => h.includes('progress') || h.includes('completion') || h.includes('module'));
+        const scoreIdx = headers.findIndex(h => h.includes('score') || h.includes('grade') || h.includes('quiz') || h.includes('exam'));
+        const hoursIdx = headers.findIndex(h => h.includes('hour') || h.includes('time') || h.includes('spent'));
+        const statusIdx = headers.findIndex(h => h.includes('status') || h.includes('result'));
+
+        const parsedRows = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const rowLine = lines[i].trim();
+          if (!rowLine) continue;
+          
+          // Basic CSV quote handling
+          const cols = rowLine.split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
+          
+          const rawScore = scoreIdx !== -1 ? parseFloat(cols[scoreIdx]) || 0 : (Math.floor(Math.random() * 40) + 60);
+          const rawProgress = progressIdx !== -1 ? parseFloat(cols[progressIdx]) || 0 : Math.min(100, Math.round(rawScore * 1.05));
+          const rawHours = hoursIdx !== -1 ? parseFloat(cols[hoursIdx]) || 0 : (rawScore / 6).toFixed(1);
+          
+          let inferredStatus = "In Progress";
+          if (statusIdx !== -1 && cols[statusIdx]) {
+            inferredStatus = cols[statusIdx];
+          } else {
+            if (rawScore < 65 || rawProgress < 40) inferredStatus = "At-Risk";
+            else if (rawProgress >= 90) inferredStatus = "Completed";
+          }
+
+          parsedRows.push({
+            studentId: idIdx !== -1 && cols[idIdx] ? cols[idIdx] : `STU-${1000 + i}`,
+            name: nameIdx !== -1 && cols[nameIdx] ? cols[nameIdx] : `Student ${i}`,
+            course: courseIdx !== -1 && cols[courseIdx] ? cols[courseIdx] : "General Core Curriculum",
+            progress: Math.min(100, Math.max(0, Math.round(rawProgress))),
+            avgScore: Math.min(100, Math.max(0, Math.round(rawScore * 10) / 10)),
+            hoursSpent: parseFloat(rawHours) || 8.0,
+            forumPosts: Math.floor(rawScore / 3.5),
+            lastLogin: "2026-08-28",
+            status: inferredStatus
+          });
+        }
+
+        return parsedRows.length > 0 ? parsedRows : null;
+      } catch (err) {
+        console.error("CSV Parse Error:", err);
+        return null;
+      }
+    }
+
+    document.getElementById('csvFileInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const parsed = parseCSVText(evt.target.result);
+        if (parsed && parsed.length > 0) {
+          lmsRawData = parsed;
+          populateCourseDropdown();
+          applyFilters();
+          showToast(`Successfully loaded ${parsed.length} student records from ${file.name}`);
+        } else {
+          showToast(`Could not parse data from ${file.name}. Ensure valid CSV format.`);
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    function populateCourseDropdown() {
+      const select = document.getElementById('courseFilter');
+      const currentVal = select.value;
+      const courses = [...new Set(lmsRawData.map(item => item.course))].filter(Boolean);
+
+      select.innerHTML = '<option value="ALL">All Courses (Overview)</option>';
+      courses.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        select.appendChild(opt);
+      });
+
+      if (courses.includes(currentVal)) {
+        select.value = currentVal;
+      }
+    }
+
+    function applyFilters() {
+      const courseVal = document.getElementById('courseFilter').value;
+      const statusVal = document.getElementById('statusFilter').value;
+      const gradeVal = document.getElementById('gradeFilter').value;
+      const searchQuery = document.getElementById('tableSearch').value.toLowerCase().trim();
+
+      filteredData = lmsRawData.filter(item => {
+        // Course Filter
+        if (courseVal !== 'ALL' && item.course !== courseVal) return false;
+        
+        // Status Filter
+        if (statusVal !== 'ALL') {
+          if (statusVal === 'Completed' && item.status !== 'Completed') return false;
+          if (statusVal === 'In Progress' && item.status !== 'In Progress') return false;
+          if (statusVal === 'At-Risk' && item.status !== 'At-Risk') return false;
+        }
+
+        // Grade Tier Filter
+        if (gradeVal !== 'ALL') {
+          if (gradeVal === 'A' && item.avgScore < 90) return false;
+          if (gradeVal === 'B' && (item.avgScore < 80 || item.avgScore >= 90)) return false;
+          if (gradeVal === 'C' && (item.avgScore < 70 || item.avgScore >= 80)) return false;
+          if (gradeVal === 'D/F' && item.avgScore >= 70) return false;
+        }
+
+        // Search Query
+        if (searchQuery) {
+          const matchName = item.name.toLowerCase().includes(searchQuery);
+          const matchId = item.studentId.toLowerCase().includes(searchQuery);
+          const matchCourse = item.course.toLowerCase().includes(searchQuery);
+          if (!matchName && !matchId && !matchCourse) return false;
+        }
+
+        return true;
+      });
+
+      currentPage = 1;
+      updateKPICards();
+      renderCharts();
+      renderAtRiskList();
+      renderTable();
+    }
+
+    function updateKPICards() {
+      const count = filteredData.length;
+      document.getElementById('filteredStudentCountBadge').textContent = `${count} Records`;
+      document.getElementById('kpiTotalStudents').textContent = count;
+
+      if (count === 0) {
+        document.getElementById('kpiAvgScore').textContent = "0%";
+        document.getElementById('kpiAvgCompletion').textContent = "0%";
+        document.getElementById('kpiAtRiskCount').textContent = "0";
+        return;
+      }
+
+      const totalScore = filteredData.reduce((acc, curr) => acc + curr.avgScore, 0);
+      const totalProgress = filteredData.reduce((acc, curr) => acc + curr.progress, 0);
+      const atRiskCount = filteredData.filter(s => s.status === 'At-Risk' || s.avgScore < 65).length;
+
+      const avgScore = (totalScore / count).toFixed(1);
+      const avgProgress = (totalProgress / count).toFixed(1);
+
+      document.getElementById('kpiAvgScore').textContent = `${avgScore}%`;
+      document.getElementById('kpiAvgCompletion').textContent = `${avgProgress}%`;
+      document.getElementById('kpiAtRiskCount').textContent = atRiskCount;
+      document.getElementById('atRiskBadgeCount').textContent = atRiskCount;
+    }
+
+    function renderCharts() {
+      // 1. Grade Distribution Bar Chart
+      const gradeCounts = { 'A (90+)': 0, 'B (80-89)': 0, 'C (70-79)': 0, 'D (60-69)': 0, 'F (<60)': 0 };
+      filteredData.forEach(d => {
+        if (d.avgScore >= 90) gradeCounts['A (90+)']++;
+        else if (d.avgScore >= 80) gradeCounts['B (80-89)']++;
+        else if (d.avgScore >= 70) gradeCounts['C (70-79)']++;
+        else if (d.avgScore >= 60) gradeCounts['D (60-69)']++;
+        else gradeCounts['F (<60)']++;
+      });
+
+      if (gradeChartInstance) gradeChartInstance.destroy();
+      const ctxGrade = document.getElementById('gradeDistributionChart').getContext('2d');
+      gradeChartInstance = new Chart(ctxGrade, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(gradeCounts),
+          datasets: [{
+            label: 'Student Count',
+            data: Object.values(gradeCounts),
+            backgroundColor: [
+              '#10b981', // Emerald
+              '#6366f1', // Indigo
+              '#38bdf8', // Sky
+              '#f59e0b', // Amber
+              '#f43f5e'  // Rose
+            ],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8', precision: 0 } },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+
+      // 2. Scatter Plot: Hours Spent vs Score
+      const scatterData = filteredData.map(d => ({
+        x: d.hoursSpent,
+        y: d.avgScore,
+        name: d.name,
+        course: d.course
+      }));
+
+      if (scatterChartInstance) scatterChartInstance.destroy();
+      const ctxScatter = document.getElementById('engagementScatterChart').getContext('2d');
+      scatterChartInstance = new Chart(ctxScatter, {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: 'Students',
+            data: scatterData,
+            backgroundColor: '#818cf8',
+            borderColor: '#6366f1',
+            pointRadius: 6,
+            pointHoverRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.raw.name}: ${ctx.raw.x} hrs/wk, Score: ${ctx.raw.y}%`
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: { display: true, text: 'Study Hours / Week', color: '#94a3b8', font: { size: 11 } },
+              grid: { color: '#334155' },
+              ticks: { color: '#94a3b8' }
+            },
+            y: {
+              title: { display: true, text: 'Exam Score %', color: '#94a3b8', font: { size: 11 } },
+              grid: { color: '#334155' },
+              ticks: { color: '#94a3b8' },
+              min: 30,
+              max: 100
+            }
+          }
+        }
+      });
+
+      // 3. Weekly Activity Line Chart
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const sampleWeeklyData = [35, 58, 72, 85, 62, 41, 48];
+      
+      if (weeklyChartInstance) weeklyChartInstance.destroy();
+      const ctxWeekly = document.getElementById('weeklyActivityChart').getContext('2d');
+      weeklyChartInstance = new Chart(ctxWeekly, {
+        type: 'line',
+        data: {
+          labels: days,
+          datasets: [{
+            label: 'LMS Active Sessions',
+            data: sampleWeeklyData,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.15)',
+            tension: 0.35,
+            fill: true,
+            pointBackgroundColor: '#38bdf8'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+
+      // 4. Course Benchmark Horizontal Bar Chart
+      const courseMap = {};
+      filteredData.forEach(d => {
+        if (!courseMap[d.course]) {
+          courseMap[d.course] = { totalScore: 0, totalProgress: 0, count: 0 };
+        }
+        courseMap[d.course].totalScore += d.avgScore;
+        courseMap[d.course].totalProgress += d.progress;
+        courseMap[d.course].count++;
+      });
+
+      const courseLabels = Object.keys(courseMap);
+      const avgScoresByCourse = courseLabels.map(c => (courseMap[c].totalScore / courseMap[c].count).toFixed(1));
+      const avgProgByCourse = courseLabels.map(c => (courseMap[c].totalProgress / courseMap[c].count).toFixed(1));
+
+      if (courseCompChartInstance) courseCompChartInstance.destroy();
+      const ctxCourse = document.getElementById('courseComparisonChart').getContext('2d');
+      courseCompChartInstance = new Chart(ctxCourse, {
+        type: 'bar',
+        data: {
+          labels: courseLabels.map(c => c.length > 20 ? c.slice(0, 18) + '...' : c),
+          datasets: [
+            {
+              label: 'Avg Score %',
+              data: avgScoresByCourse,
+              backgroundColor: '#6366f1',
+              borderRadius: 6
+            },
+            {
+              label: 'Avg Progress %',
+              data: avgProgByCourse,
+              backgroundColor: '#10b981',
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', labels: { color: '#cbd5e1', boxWidth: 12 } }
+          },
+          scales: {
+            y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' }, max: 100 },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+    }
+
+    function renderAtRiskList() {
+      const container = document.getElementById('atRiskList');
+      container.innerHTML = '';
+
+      const atRiskStudents = filteredData.filter(s => s.status === 'At-Risk' || s.avgScore < 65);
+
+      if (atRiskStudents.length === 0) {
+        container.innerHTML = `
+          <div class="h-32 flex flex-col items-center justify-center text-slate-500">
+            <i data-lucide="check-circle" class="w-8 h-8 text-emerald-500 mb-1"></i>
+            <span class="text-xs">No at-risk students in this filter view.</span>
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+
+      atRiskStudents.forEach(stu => {
+        const item = document.createElement('div');
+        item.className = 'p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/20 flex items-center justify-between hover:border-rose-500/40 transition cursor-pointer';
+        item.onclick = () => openStudentModal(stu);
+        
+        item.innerHTML = `
+          <div class="flex items-center space-x-2.5">
+            <div class="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-xs">
+              ${stu.name.charAt(0)}
+            </div>
+            <div>
+              <div class="text-xs font-semibold text-white">${stu.name}</div>
+              <div class="text-[10px] text-slate-400">${stu.course}</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-xs font-bold text-rose-400">${stu.avgScore}% Score</div>
+            <div class="text-[10px] text-slate-500">${stu.hoursSpent} hrs/wk</div>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+
+      lucide.createIcons();
+    }
+
+    function sortTable(field) {
+      if (currentSortField === field) {
+        currentSortAsc = !currentSortAsc;
+      } else {
+        currentSortField = field;
+        currentSortAsc = true;
+      }
+      renderTable();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('studentTableBody');
+      tbody.innerHTML = '';
+
+      // Sort data
+      const sorted = [...filteredData].sort((a, b) => {
+        let valA = a[currentSortField];
+        let valB = b[currentSortField];
+        if (typeof valA === 'string') {
+          return currentSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+        return currentSortAsc ? (valA - valB) : (valB - valA);
+      });
+
+      // Pagination slice
+      const total = sorted.length;
+      document.getElementById('tableRecordCount').textContent = `${total} Records`;
+      const startIdx = (currentPage - 1) * pageSize;
+      const paginated = sorted.slice(startIdx, startIdx + pageSize);
+
+      if (paginated.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-500 text-xs">No student records found matching current criteria.</td></tr>`;
+        document.getElementById('paginationInfo').textContent = 'Showing 0 of 0';
+        return;
+      }
+
+      paginated.forEach(student => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/50 transition';
+
+        let badgeStyle = 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30';
+        if (student.status === 'Completed') badgeStyle = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+        if (student.status === 'At-Risk') badgeStyle = 'bg-rose-500/20 text-rose-300 border border-rose-500/30';
+
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-mono text-slate-400">${student.studentId}</td>
+          <td class="px-4 py-3 font-medium text-white">${student.name}</td>
+          <td class="px-4 py-3 text-slate-300">${student.course}</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center space-x-2">
+              <div class="w-16 bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                <div class="bg-indigo-500 h-full rounded-full" style="width: ${student.progress}%"></div>
+              </div>
+              <span class="text-[11px] text-slate-400">${student.progress}%</span>
+            </div>
+          </td>
+          <td class="px-4 py-3 font-semibold ${student.avgScore >= 80 ? 'text-emerald-400' : student.avgScore < 65 ? 'text-rose-400' : 'text-slate-200'}">
+            ${student.avgScore}%
+          </td>
+          <td class="px-4 py-3 text-slate-400">${student.hoursSpent} hrs</td>
+          <td class="px-4 py-3">
+            <span class="badge ${badgeStyle}">${student.status}</span>
+          </td>
+          <td class="px-4 py-3 text-right">
+            <button class="p-1.5 rounded-lg bg-slate-700/60 hover:bg-indigo-600 hover:text-white text-slate-300 transition" title="View Profile" onclick="event.stopPropagation();">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            </button>
+          </td>
+        `;
+
+        // Click row opens detail modal
+        tr.onclick = () => openStudentModal(student);
+        tbody.appendChild(tr);
+      });
+
+      // Update Pagination Info
+      const endIdx = Math.min(startIdx + pageSize, total);
+      document.getElementById('paginationInfo').textContent = `Showing ${startIdx + 1}-${endIdx} of ${total}`;
+      document.getElementById('currentPageBadge').textContent = currentPage;
+      document.getElementById('btnPrevPage').disabled = currentPage === 1;
+      document.getElementById('btnNextPage').disabled = endIdx >= total;
+
+      lucide.createIcons();
+    }
+
+    function openStudentModal(student) {
+      currentSelectedStudent = student;
+      document.getElementById('modalAvatar').textContent = student.name.split(' ').map(n => n[0]).join('');
+      document.getElementById('modalStudentName').textContent = student.name;
+      document.getElementById('modalStudentId').textContent = `ID: ${student.studentId} • Last Login: ${student.lastLogin}`;
+      document.getElementById('modalCourse').textContent = student.course;
+      document.getElementById('modalScore').textContent = `${student.avgScore}%`;
+      document.getElementById('modalHours').textContent = `${student.hoursSpent} hrs/wk (${student.forumPosts} forum interactions)`;
+      document.getElementById('modalProgressText').textContent = `${student.progress}%`;
+      document.getElementById('modalProgressBar').style.width = `${student.progress}%`;
+
+      const statusBadge = document.getElementById('modalStatusBadge');
+      statusBadge.textContent = student.status;
+      statusBadge.className = 'badge ' + (
+        student.status === 'Completed' ? 'bg-emerald-500/20 text-emerald-400' :
+        student.status === 'At-Risk' ? 'bg-rose-500/20 text-rose-400' : 'bg-indigo-500/20 text-indigo-400'
+      );
+
+      const note = student.avgScore < 65 
+        ? "Flagged for academic support. Inactivity detected over recent modules with lower quiz completion rates. Recommended immediate tutor outreach."
+        : student.avgScore > 90 
+        ? "Exemplary performance! High study consistency and strong engagement in discussion boards."
+        : "Steady progress adhering to course timeline. Maintains solid assignment submission milestones.";
+
+      document.getElementById('modalAdvisorNote').textContent = note;
+      document.getElementById('studentDetailModal').classList.remove('hidden');
+      document.getElementById('studentDetailModal').classList.add('flex');
+    }
+
+    function closeStudentModal() {
+      document.getElementById('studentDetailModal').classList.add('hidden');
+      document.getElementById('studentDetailModal').classList.remove('flex');
+    }
+
+    function sendStudentIntervention() {
+      if (currentSelectedStudent) {
+        showToast(`Advisory message dispatched to ${currentSelectedStudent.name} (${currentSelectedStudent.studentId}).`);
+        closeStudentModal();
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toastNotification');
+      document.getElementById('toastMessage').textContent = msg;
+      toast.classList.remove('hidden');
+      toast.classList.add('flex');
+      setTimeout(() => {
+        hideToast();
+      }, 4500);
+    }
+
+    function hideToast() {
+      const toast = document.getElementById('toastNotification');
+      toast.classList.add('hidden');
+      toast.classList.remove('flex');
+    }
+
+    // Export CSV report
+    document.getElementById('btnExport').addEventListener('click', () => {
+      if (filteredData.length === 0) {
+        showToast("No records to export.");
+        return;
+      }
+      const headers = ["StudentID", "Name", "Course", "Progress", "AvgScore", "HoursSpent", "ForumPosts", "Status"];
+      const csvRows = [headers.join(",")];
+      filteredData.forEach(row => {
+        csvRows.push([
+          `"${row.studentId}"`,
+          `"${row.name}"`,
+          `"${row.course}"`,
+          row.progress,
+          row.avgScore,
+          row.hoursSpent,
+          row.forumPosts,
+          `"${row.status}"`
+        ].join(","));
+      });
+
+      const blob = new Blob([csvRows.join("\n")], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "LMS_Performance_Report.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("LMS performance report exported successfully.");
+    });
+
+    // Pagination handlers
+    document.getElementById('btnPrevPage').addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        renderTable();
+      }
+    });
+
+    document.getElementById('btnNextPage').addEventListener('click', () => {
+      if (currentPage * pageSize < filteredData.length) {
+        currentPage++;
+        renderTable();
+      }
+    });
+
+    // Reset filters
+    document.getElementById('btnResetFilters').addEventListener('click', () => {
+      document.getElementById('courseFilter').value = 'ALL';
+      document.getElementById('statusFilter').value = 'ALL';
+      document.getElementById('gradeFilter').value = 'ALL';
+      document.getElementById('tableSearch').value = '';
+      applyFilters();
+      showToast("Filters reset to cohort overview.");
+    });
+
+    // Filter change listeners
+    document.getElementById('courseFilter').addEventListener('change', applyFilters);
+    document.getElementById('statusFilter').addEventListener('change', applyFilters);
+    document.getElementById('gradeFilter').addEventListener('change', applyFilters);
+    document.getElementById('tableSearch').addEventListener('input', applyFilters);
+
+    window.addEventListener('DOMContentLoaded', () => {
+      lmsRawData = [...defaultSampleData];
+      populateCourseDropdown();
+      applyFilters();
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
